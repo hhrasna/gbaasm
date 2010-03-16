@@ -1,0 +1,43 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.07;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@/*
+ * ARM7SWP.java
+ *
+ * Created on December 3, 2002, 10:00 PM
+ */
+
+package asm.instructions;
+
+/**
+ *
+ * @@author  hans
+ */
+public class ARM7SWP extends ARM7SingleDataSwap {
+    
+    /** Creates a new instance of ARM7SWP */
+    public ARM7SWP(ParsedInstruction pi) {
+        super(pi);
+    }
+    
+}
+@

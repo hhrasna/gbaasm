@@ -1,0 +1,123 @@
+head	1.3;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.3
+date	2003.02.20.15.38.38;	author hans;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2003.02.09.01.54.08;	author hans;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2003.02.07.18.18.41;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.3
+log
+@Thumb support updates
+@
+text
+@package asm.instructions;
+
+/* Several THUMB formats define the variations of ADD
+ * Format 2: add/subtract
+ * Format 5: Hi register operations/branch exchange
+ * Format 12: load address
+ * Format 13: add offset to Stack Pointer
+ */
+
+public class Thumb7ADD extends Thumb7Instruction {
+    Instruction i;
+    
+    public Thumb7ADD(ParsedInstruction pi) {
+        super(pi);
+        java.util.Vector opcodes = pi.getOpcodes();
+        String $Rd = (String)opcodes.elementAt(1);
+        String $Rs = (String)opcodes.elementAt(2);
+        if ( $Rs.startsWith("#") ) {
+            if ( $Rd.equals("SP") ) {
+                //format 13
+                i = new Thumb7Format13(pi);
+            } else {
+                i = new Thumb7Format3(pi);
+            }
+            return;
+        } else if ((Util.getRegisterNumber($Rs) == 13 || Util.getRegisterNumber($Rs) == 15) && ((String)opcodes.lastElement()).startsWith("#")) {
+            //format 12
+            i = new Thumb7Format12(pi);
+            return;
+        } else {
+            int rd = Util.getRegisterNumber($Rd);
+            int rs = Util.getRegisterNumber($Rs);
+            if (rd > 7 || rs > 7) {
+                //format 5
+                i = new Thumb7Format5(pi);
+                return;
+            } else {
+                //format 2
+                i = new Thumb7Format2(pi);
+                return;
+            }
+        }
+    }
+    
+    public int getMachineCode() {
+        return i.getMachineCode();
+    }
+    
+}
+@
+
+
+1.2
+log
+@Thumb support updates
+@
+text
+@d18 7
+a24 3
+        if ($Rd.equals("SP") && $Rs.startsWith("#")) {
+            //format 13
+            i = new Thumb7Format13(pi);
+d35 1
+a35 1
+               i = new Thumb7Format5(pi);
+@
+
+
+1.1
+log
+@Thumb7 support update
+@
+text
+@d10 1
+a10 1
+public class Thumb7ADD implements Instruction {
+d14 1
+d20 1
+a20 2
+            asm.Assembler.error("Format 13: add offset to Stack Pointer - not implemented");
+            i = new Thumb7Format2(pi);
+d24 1
+a24 2
+            asm.Assembler.error("Format 12: load address - not implemented");
+            i = new Thumb7Format2(pi);
+d31 1
+a31 2
+                asm.Assembler.error("Format 5: Hi register operations/branch exchange - not implemented");
+                i = new Thumb7Format2(pi);
+@
+

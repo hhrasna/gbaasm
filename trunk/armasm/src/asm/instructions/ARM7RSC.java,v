@@ -1,0 +1,36 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.05;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@package asm.instructions;
+
+
+public class ARM7RSC extends ARM7AND {
+
+
+	public ARM7RSC(ParsedInstruction pi) {
+	    super(pi);
+	    clear(24); // RSC 0111 operand2 - operand1 + carry - 1
+	    set(23);
+	    set(22);
+	    set(21);
+	}
+}@

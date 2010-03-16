@@ -1,0 +1,36 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.00;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@package asm.instructions;
+
+
+public class ARM7BIC extends ARM7AND {
+
+
+	public ARM7BIC(ParsedInstruction pi) {
+	    super(pi);
+	    set(24); // BIC 1110 operand1 AND NOT operand2 (Bit clear)
+	    set(23);
+	    set(22);
+	    clear(21);
+	}
+}@

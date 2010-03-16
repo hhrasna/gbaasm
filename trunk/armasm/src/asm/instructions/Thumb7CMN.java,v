@@ -1,0 +1,34 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.20.15.38.38;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@Thumb support updates
+@
+
+
+1.1
+log
+@Thumb support updates
+@
+text
+@package asm.instructions;
+
+public class Thumb7CMN extends Thumb7Format4 {
+    public Thumb7CMN(ParsedInstruction pi) {
+        super(pi);
+        set(9);
+        set(7);
+        set(6);
+    }
+}
+@

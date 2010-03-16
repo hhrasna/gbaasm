@@ -1,0 +1,36 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.05;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@package asm.instructions;
+
+
+public class ARM7RSB extends ARM7AND {
+
+
+	public ARM7RSB(ParsedInstruction pi) {
+	    super(pi);
+	    clear(24); // RSB 0011 operand2 - operand1
+	    clear(23);
+	    set(22);
+	    set(21);
+	}
+}@
