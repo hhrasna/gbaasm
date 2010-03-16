@@ -1,0 +1,34 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.07;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@package asm.instructions;
+
+
+public class ARM7STR extends ARM7SingleDataXfer {
+
+	public ARM7STR(ParsedInstruction pi) {
+		super(pi);
+		
+		clear(20); // clear load/store bit (store)
+			
+	}
+}@

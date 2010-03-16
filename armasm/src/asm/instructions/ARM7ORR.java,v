@@ -1,0 +1,36 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.05;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@package asm.instructions;
+
+
+public class ARM7ORR extends ARM7AND {
+
+
+	public ARM7ORR(ParsedInstruction pi) {
+	    super(pi);
+	    set(24); // ORR 1100 operand1 OR operand2
+	    set(23);
+	    clear(22);
+	    clear(21);
+	}
+}@

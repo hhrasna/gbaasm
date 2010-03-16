@@ -1,0 +1,50 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.20.15.38.41;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@Thumb support updates
+@
+
+
+1.1
+log
+@Thumb support updates
+@
+text
+@package asm.instructions;
+
+/*
+ * Thumb MOV
+ */
+public class Thumb7MOV extends Thumb7Instruction {
+    Thumb7Instruction i;
+    
+    public Thumb7MOV(ParsedInstruction pi) {
+        super(pi);
+        java.util.Vector opcodes = pi.getOpcodes();        
+        int rd = Util.getRegisterNumber((String)opcodes.elementAt(1));
+        int rs = Util.getRegisterNumber((String)opcodes.elementAt(2));
+        if (rd > 7 || rs > 7) {
+            //format 5
+            i = new Thumb7Format5(pi);
+            i.set(9);
+        } else {
+            i = new Thumb7Format3(pi);
+        }
+    }
+    
+    public int getMachineCode() {
+        return i.getMachineCode();
+    }
+}
+@

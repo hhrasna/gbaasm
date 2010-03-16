@@ -1,0 +1,36 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.00;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@package asm.instructions;
+
+
+public class ARM7ADD extends ARM7AND {
+
+
+	public ARM7ADD(ParsedInstruction pi) {
+	    super(pi);
+	    clear(24); // ADD 0100 operand1 + operand2
+	    set(23);
+	    clear(22);
+	    clear(21);
+	}
+}@

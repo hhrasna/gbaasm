@@ -1,0 +1,44 @@
+head	1.1;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.1
+date	2003.02.03.16.47.08;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@/*
+ * ARM7UMLAL.java
+ *
+ * Created on December 2, 2002, 4:09 PM
+ */
+
+package asm.instructions;
+
+/**
+ *
+ * @@author  hans
+ */
+public class ARM7UMLAL extends ARM7MultiplyLong {
+    
+    /** Creates a new instance of ARM7SMULL */
+    public ARM7UMLAL( ParsedInstruction pi ) {
+        super(pi);
+        set(21); // 1 = multiply and accumulate
+    }
+    
+}
+@

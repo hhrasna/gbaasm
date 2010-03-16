@@ -1,0 +1,498 @@
+head	1.3;
+access;
+symbols;
+locks; strict;
+comment	@# @;
+
+
+1.3
+date	2003.02.20.15.38.43;	author hans;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2003.02.07.18.18.06;	author hans;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2003.02.03.16.46.45;	author hans;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.3
+log
+@Thumb support updates
+@
+text
+@package asm;
+
+import java.io.*;
+import java.util.*;
+import java.lang.reflect.*;
+
+import asm.instructions.Instruction;
+import asm.instructions.ARM7SingleDataXfer;
+import asm.instructions.ARM7B;
+import asm.instructions.ParsedInstruction;
+
+public class Assembler {
+    
+    private BufferedReader fileReader;
+    private static Hashtable labels = new Hashtable();    //key = String name, value = Long value
+    private static Vector literalPool = new Vector();     //the current pool
+    private static Vector pools = new Vector();           //vector of ParsedInstructions which are LTORG
+    private Vector instructions = new Vector();
+    private File file;
+    private static int errors = 0;
+    private static int warnings = 0;
+    private String [] cc =
+    new String [] {"EQ","NE","CS","CC","MI","PL","VS","VC","HI","LS","GE","LT","GT","LE","AL"};
+    private static org.nfunk.jep.JEP myParser = new org.nfunk.jep.JEP();
+    private static boolean verbose = false;
+    private static boolean debug = true;
+    private static boolean thumb = false; //thumb mode flag
+    
+    public Assembler(File file) throws FileNotFoundException {
+        fileReader = new BufferedReader(new FileReader(file));
+        this.file = file;
+    }
+    
+    public static void setVerbose(boolean v) {
+        verbose = v;
+    }
+    
+    public static int addLiteral(String literal) {
+        if ( ! literalPool.contains(literal) ) {
+            literalPool.addElement(literal);
+        }
+        return literalPool.indexOf(literal) * 4;
+    }
+    
+    public static void error(String msg) {
+        errors++;
+        System.out.println("ERROR: " + msg);
+    }
+    
+    public static void warning(String msg) {
+        warnings++;
+        System.out.println("WARNING: " + msg);
+    }
+    
+    public static void debug(String msg) {
+        if (debug) System.out.println(msg);
+    }
+    
+    public static void verbose(String msg) {
+        if (verbose) System.out.println(msg);
+    }
+    
+    public static String getLabel(String label) {
+        return (String)labels.get(label);
+    }
+    
+    public static Vector getPools() {
+        return pools;
+    }
+    
+    /*
+     parse a program relative or register relative (MAP) expression
+     */
+    public static int parseExpression( String expr ) {
+        debug("parseExpression " + expr );
+        try {
+            return (Integer.decode( expr )).intValue();
+        } catch ( NumberFormatException nfe ) {
+        }
+        
+        String delimeters = "[]()+-*/%~&|^";
+        StringTokenizer st = new StringTokenizer(expr, delimeters, true);
+        StringBuffer eval = new StringBuffer();
+        while ( st.hasMoreTokens() ) {
+            String operand = st.nextToken();
+            if ( delimeters.indexOf(operand) >= 0 ) {
+                if ( !operand.equals("[") && !operand.equals("]") ) {
+                    debug("operand: " + operand);
+                    eval.append(operand);
+                }
+                continue;
+            }
+            String value = getLabel( operand );
+            if ( value != null ) {
+                
+                try {
+                    Integer i = Integer.decode( value );
+                    debug("parseExpression variable : " + operand + " = " + i);
+                    myParser.addVariable( operand , i.intValue() );
+                    eval.append(operand);
+                    
+                } catch( NumberFormatException nfe ) {
+                    int i = parseExpression(value);
+                    debug("parseExpression variable : " + operand + " = " + i);
+                    myParser.addVariable( operand , i );
+                    eval.append(operand);
+                    //error("parseExpression: " + nfe.toString());
+                }
+            } else {
+                debug(operand + " -> ");
+                int radix = 10;
+                if (operand.startsWith("0x")) {
+                    operand = operand.substring(2,operand.length());
+                    radix = 16;
+                }/* else if (operand.startsWith("0")) {
+                    radix = 8;
+                }*/
+                debug(operand);
+                try {
+                    int i = (Long.valueOf( operand, radix )).intValue();
+                    eval.append(i);
+                } catch ( NumberFormatException fe ) {
+                    error("Unable to expand expression: " + expr);
+                }
+            }
+        }
+        
+        myParser.parseExpression( eval.toString() );
+        int val = (int)myParser.getValue();
+        verbose( "parseExpression: " + eval + "=" + val);
+        return val;
+        
+    }
+    
+    void assembleLiteralPool(Vector lp, DataOutputStream dos) throws IOException {
+        Enumeration le = lp.elements();
+        while (le.hasMoreElements() ) {
+            String label = (String)le.nextElement();
+            verbose( "Processing literal " + label );
+            String n = getLabel(label);
+            int i;
+            if ( n != null ) {
+                i = parseExpression( n );
+            } else {
+                i = parseExpression( label );
+            }
+            verbose( label + " = " + i );
+            dos.write(i);
+            dos.write(i >> 8);
+            dos.write(i >> 16);
+            dos.write(i >> 24);
+        }
+    }
+    
+    public synchronized void assemble() {
+        int lineNum = 1;
+        int address = 0;
+        Stack labelStack = new Stack();
+        String label = null;
+        
+        try {
+            while (fileReader.ready()) {
+                String currentLine = fileReader.readLine();
+                
+                if ( currentLine.startsWith("\n") || currentLine.startsWith(";") ) {
+                    lineNum++;
+                    continue;
+                }
+                
+                StringTokenizer st = new StringTokenizer(currentLine);
+                if ((!(currentLine.startsWith(" ") || currentLine.startsWith("\t"))) && st.hasMoreTokens() ) {
+                    label = st.nextToken();
+                    labelStack.push(label);
+                    if (labels.containsKey(label) ) {
+                        warning(lineNum + " Warning: label redefined -> " + label);
+                    }
+                }
+                
+                if ( st.hasMoreTokens() ) {
+                    Vector opcodes = new Vector();
+                    StringBuffer sb = new StringBuffer();
+                    String cmd = st.nextToken().toUpperCase();
+                    
+                    if ( cmd.startsWith(";") ) {
+                        lineNum++;
+                        continue;
+                    }
+                    
+                    if ( cmd.equals("EQU") || cmd.equals("*") ) {
+                        String value = "";
+                        while( st.hasMoreTokens() ) {
+                            String t = st.nextToken();
+                            if ( t.startsWith(";") ) {
+                                break;
+                            }
+                            value = value + t;
+                        }
+                        labels.put( (String)labelStack.pop(), value );
+                        lineNum++;
+                        continue;
+                    } else
+                        if ( cmd.equals("LTORG") ) {
+                            ParsedInstruction pi = new ParsedInstruction(null, lineNum, address, cmd, literalPool);
+                            instructions.addElement(pi);
+                            pools.addElement(pi);
+                            address = address + (literalPool.size() * 4);
+                            literalPool = new Vector();
+                            lineNum++;
+                            continue;
+                        }
+                    
+                    opcodes.addElement(cmd);
+                    while ( !labelStack.empty() ) {
+                        String a = Integer.toString(address);
+                        labels.put( (String)labelStack.pop(), a );
+                    }
+                    
+                    // remove remaining spaces
+                    String tmp;
+                    while( st.hasMoreTokens() ) {
+                        tmp = st.nextToken();
+                        if ( tmp.startsWith(";") ) {
+                            break;
+                        }
+                        sb.append(tmp);
+                    }
+                    
+                    String s = sb.toString();
+                    if (s.indexOf(",") < 0 ) {
+                        opcodes.addElement( s );
+                    } else {
+                        st = new StringTokenizer(s,",");
+                        while(st.hasMoreTokens()) {
+                            tmp = st.nextToken();
+                            opcodes.addElement( tmp );
+                        }
+                    }
+                    
+                    //process LDR Rd,=constant pseudo instruction
+                    if ( cmd.startsWith("LDR") && ((String)opcodes.lastElement()).startsWith("=") ) {
+                        String lit = (String)opcodes.lastElement();
+                        addLiteral( lit.substring( 1, lit.length() ) );
+                    }
+                    
+                    //DCD
+                    if ( cmd.equals("DCD") || cmd.equals("&") ) {
+                        instructions.addElement(new ParsedInstruction(null, lineNum, address, cmd, opcodes));
+                        debug(Integer.toHexString(address) + ": " +
+                        "    " + currentLine + "   " + opcodes);
+                        address = address + ((opcodes.size() -1) * 4);
+                        lineNum++;
+                        continue;
+                    }
+                    
+                    //CODE16
+                    if ( cmd.equals("CODE16") ) {
+                        thumb = true;
+                        continue;
+                    }
+                    
+                    //CODE32
+                    if ( cmd.equals("CODE32") ) {
+                        thumb = false;
+                        continue;
+                    }
+                    
+                    //Set InstructionHandler for ARM7 and Thumb7 Instructions
+                    Class instructionHandler = null;
+                    try {
+                        if(!thumb) {
+                            //strip condition code
+                            for( int x=0; x < cc.length; x++ ) {
+                                try {
+                                    if( cmd.substring( 3, 5 ).equals( cc[x] ) ) {
+                                        tmp = cmd;
+                                        cmd = tmp.substring(0,3) + tmp.substring(5,tmp.length());
+                                        break;
+                                    }
+                                } catch (StringIndexOutOfBoundsException sob) {
+                                }
+                            }
+                        }
+                        int c = cmd.length();
+                        debug("Lookup InstructionHandler for " + cmd);
+                        String mneumonic;
+                        while(c > 0) {
+                            mneumonic = cmd.substring(0,c--).toUpperCase();
+                            try {
+                                if (thumb) {
+                                    instructionHandler = Class.forName("asm.instructions.Thumb7" + mneumonic );
+                                } else {
+                                    instructionHandler = Class.forName("asm.instructions.ARM7" + mneumonic );
+                                }
+                            }
+                            catch (ClassNotFoundException cnf) {
+                                debug(cnf.toString());
+                            }
+                            catch (Exception e1) {
+                                error(e1.toString());
+                            }
+                            if ( instructionHandler != null ) {
+                                debug(Integer.toHexString(address) + ": " +
+                                "    " + currentLine + "   " + opcodes);
+                                instructions.addElement(new ParsedInstruction(instructionHandler, lineNum, address, mneumonic, opcodes));
+                                if (thumb) {
+                                    address = address + 2;
+                                } else {
+                                    address = address + 4;
+                                }
+                                break;
+                            }
+                        }
+                        if ( instructionHandler == null ) {
+                            //didn't find a class to handle the cmd
+                            error("line: " + lineNum + " Syntax error, unknown command:" + currentLine);
+                        }
+                        
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                lineNum++;
+            }
+            if ( errors > 0 ) {
+                System.out.println( errors + " Errors");
+                return;
+            }
+            // if there are any unprocessed literals, put them at the end.
+            if ( !literalPool.isEmpty() ) {
+                ParsedInstruction pi = new ParsedInstruction(null, lineNum, address, "LTORG", literalPool);
+                instructions.addElement(pi);
+                pools.addElement(pi);
+            }
+            
+            // ******** Second pass *********
+            
+            Enumeration e = instructions.elements();
+            int ia = 0;
+            String origfile = file.getName();
+            String assemfile = origfile.substring(0,origfile.indexOf(".")) + ".gba";
+            verbose( "Writing to: " + assemfile );
+            DataOutputStream dos = new DataOutputStream(new FileOutputStream(new File(assemfile)));
+            while ( e.hasMoreElements() ) {
+                Instruction a7i;
+                ParsedInstruction pi = (ParsedInstruction)e.nextElement();
+                if ( pi.getMneumonic().equals("LTORG") ) {
+                    Vector lp = pi.getOpcodes();
+                    assembleLiteralPool( lp, dos );
+                    ia = ia + ( lp.size() * 4 );
+                    continue;
+                } else
+                    if ( pi.getMneumonic().equalsIgnoreCase("DCD") || pi.getMneumonic().equals("&") ) {
+                        Vector data = pi.getOpcodes();
+                        Enumeration enum = data.elements();
+                        enum.nextElement(); // skip cmd
+                        int radix = 10;
+                        if (verbose && enum.hasMoreElements()) {
+                            System.out.print(ia + ": ");
+                        }
+                        while ( enum.hasMoreElements() ) {
+                            String operand = (String)enum.nextElement();
+                            if (operand.startsWith("0x")) {
+                                operand = operand.substring(2,operand.length());
+                                radix = 16;
+                            }/* else if (operand.startsWith("0")) {
+                                radix = 8;
+                            }*/
+                            try {
+                                int i = (Long.valueOf( operand, radix )).intValue();
+                                dos.write(i);
+                                dos.write(i >> 8);
+                                dos.write(i >> 16);
+                                dos.write(i >> 24);
+                                ia = ia + 4;
+                                if (verbose) {
+                                    System.out.print(operand);
+                                }
+                                if (verbose && enum.hasMoreElements()) {
+                                    System.out.print(", ");
+                                }
+                            } catch ( NumberFormatException fe ) {
+                                error("Unable to expand expression: " + operand);
+                            }
+                        }
+                        if (verbose) System.out.println("");
+                        continue;
+                    }
+                
+                Class instructionHandler = pi.getHandler();
+                debug("Handler: " + instructionHandler);
+                try {
+                    Class [] parameterTypes = new Class [] {pi.getClass()};
+                    Constructor constructor = instructionHandler.getConstructor(parameterTypes);
+                    a7i = (Instruction)constructor.newInstance(new Object [] { pi });
+                } catch (Exception ex) {
+                    error("Assem: " + ex);
+                    break;
+                }
+                
+                if ( a7i instanceof ARM7SingleDataXfer ) {
+                    //set literal pool address
+                    ((ARM7SingleDataXfer)a7i).setPoolAddress(pools, ia);
+                }
+                verbose(Integer.toHexString(ia) + ": " +
+                Integer.toHexString(a7i.getMachineCode()));
+                int ic = a7i.getMachineCode();
+                if (a7i instanceof asm.instructions.Thumb7Instruction) {
+                    dos.write(ic);
+                    dos.write(ic >> 8);
+                    ia = ia + 2;
+                } else {
+                    dos.write(ic);
+                    dos.write(ic >> 8);
+                    dos.write(ic >> 16);
+                    dos.write(ic >> 24);
+                    ia = ia + 4;
+                }
+            }
+            dos.close();
+        } catch (Exception e) {
+            error(e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println( errors + " Errors" );
+        System.out.println( warnings + " Warnings" );
+        System.out.println( "Done." );
+    }
+    
+}
+
+
+
+
+
+
+@
+
+
+1.2
+log
+@Thumb7 support updates
+@
+text
+@d26 1
+a26 1
+    private static boolean debug = false;
+@
+
+
+1.1
+log
+@*** empty log message ***
+@
+text
+@d258 1
+d264 1
+d305 5
+a309 1
+                                address = address + 4;
+d408 1
+a408 1
+                if (thumb) {
+@
+
