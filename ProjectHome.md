@@ -1,0 +1,1 @@
+jarmasm is a ARM7TDMI assember which produces Gameboy Advance executables. jarmasm follows the [ARM Developer Suite Assembler Guide](http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0068b/index.html) as its functional specification.
