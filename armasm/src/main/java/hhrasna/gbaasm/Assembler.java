@@ -257,7 +257,7 @@ public class Assembler {
                         while(c > 0) {
                             mneumonic = cmd.substring(0,c--).toUpperCase();
                             try {
-                                instructionHandler = Class.forName("hhrasna.asm.instructions.ARM7" + mneumonic );
+                                instructionHandler = Class.forName("hhrasna.gbaasm.instructions.ARM7" + mneumonic );
                             }
                             catch (ClassNotFoundException cnf) {
                                 //System.out.println(cnf);
